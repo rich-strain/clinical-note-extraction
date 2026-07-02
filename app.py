@@ -274,7 +274,7 @@ def main() -> None:
     st.title("Clinical Note Extraction Pipeline")
     st.markdown(
         "Messy, unstructured clinical text in; clean, structured data out — "
-        "with a measured accuracy score, not just a plausible-looking guess. "
+        "with a measured accuracy score. "
         f"Extraction runs on **{MODEL}** with a local cache, so a re-run of "
         "the same notes at the same prompt version costs nothing after the "
         "first pass."
