@@ -1,5 +1,11 @@
 # Project: Clinical Note Extraction Pipeline
 
+## Output style
+
+- Keep terminal/build output concise. Avoid verbose explanations of every internal step while running commands — show results, not narration.
+- When explaining code changes, keep it to a brief summary (what changed, why) rather than a full walkthrough, unless I ask for more detail.
+- Prefer showing me the diff/output over describing it in prose when both are available.
+
 ## Environment
 
 - Conda (Miniforge) for environment management
