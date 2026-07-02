@@ -69,17 +69,41 @@ than hallucinating a value. This is important for demonstrating robustness.
 - Explain the folder structure and why each piece exists.
 - STOP for testing.
 
-### STEP 2 — Note generator (`note_generator.py`)
+STEP 2 — Note generator (note_generator.py)
 
-- Template-based synthetic clinical note generation.
-- Each generated note returns TWO things: the messy text string AND a ground-truth
-  dict of the correct values embedded in it.
-- Include deliberate messiness: medical abbreviations (c/o, hx, SOB, HTN), varied
-  formats for the same value (BP as "150/90" or "150 over 90"), and randomly
-  omitted fields (so some ground-truth values are null).
-- Include a function to generate N notes at once.
-- Explain how having ground truth built in enables evaluation later.
-- STOP for testing.
+Template-based synthetic clinical note generation.
+Each generated note returns TWO things: the messy text string AND a ground-truth
+dict of the correct values embedded in it.
+Two note styles, mixed to mimic real-world clinical documentation:
+
+Labeled/structured notes (~70% — the realistic majority). Vitals carry
+explicit labels or appear in a vitals block, e.g. "HR 100, BP 137/100, RR 16"
+or "Pulse: 88. BP: 120/80." These reflect how most real records are written.
+In labeled notes, repeated values ARE allowed (e.g. HR 100 alongside a
+diastolic BP of 100) because the label disambiguates them — this specifically
+tests the extractor's ability to use labels rather than relying on numbers
+being coincidentally unique. Do NOT apply the collision guard to labeled notes.
+Bare/messy notes (~30% — the harder minority). Vitals appear as bare
+unlabeled numbers or fragmented text (e.g. "59." or "137-100." floating in a
+sentence), reflecting hurried free-text notes or OCR fragments where labels
+were lost. In these notes, apply the collision guard (re-roll so the same
+number can't appear as two different fields) — because without a label, a
+repeated value is genuinely ambiguous and would corrupt evaluation.
+
+Retain varied formats for the same value across both styles (BP as "150/90",
+"150 over 90", "150-90"; vitals labeled and unlabeled), plus medical
+abbreviations (c/o, hx, SOB, HTN) and randomly omitted fields (so some
+ground-truth values are null and the extractor must return null, not hallucinate).
+Make the labeled/bare ratio easy to adjust in one place (a single constant), so
+the mix can be tuned later.
+Include a function to generate N notes at once.
+Explain the reasoning: labeled notes test "use the label to disambiguate" (the
+common real-world case), bare notes test "cope when context is missing" (the
+harder tail a curation system earns its value on). The collision guard applies
+only where ambiguity would be genuinely ungradable (bare notes), not where a
+label makes a repeated value perfectly clear (labeled notes).
+Explain how having ground truth built in enables evaluation later.
+STOP for testing.
 
 ### STEP 3 — Extractor (`extractor.py`)
 
