@@ -1,0 +1,11 @@
+# Runtime dependencies for the Clinical Note Extraction Pipeline.
+# Install with: pip install -r requirements.txt
+#
+# Version lower bounds keep us on modern, compatible releases without pinning so
+# tightly that routine security/bugfix updates are blocked.
+
+anthropic>=0.40          # Official Anthropic Python SDK — calls Claude for extraction
+python-dotenv>=1.0       # Loads the API key from a local .env file into os.environ
+streamlit>=1.40          # Dashboard UI (Step 6)
+plotly>=5.24             # Colorblind-safe charts in the dashboard (Step 6)
+pandas>=2.2              # Tabular handling for evaluation/normalization convenience

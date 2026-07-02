@@ -227,3 +227,4 @@ than hallucinating a value. This is important for demonstrating robustness.
 - Favor clear, readable code with explanatory comments over clever/dense code.
 - Explain each component as you build it — I am learning, not just shipping.
 - Build incrementally and STOP between components for testing.
+- Ask if a commit has been pushed before moving to the next step.

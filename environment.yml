@@ -1,0 +1,23 @@
+# Conda (Miniforge) environment for the Clinical Note Extraction Pipeline.
+#
+# Create it with:   conda env create -f environment.yml
+# Activate it with: conda activate clinical-note-extraction
+# Update it with:   conda env update -f environment.yml --prune
+#
+# We pin Python but leave library versions to pip (see the note below) so the
+# resolver stays fast and the same versions are captured in requirements.txt.
+name: clinical-note-extraction
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+
+  # We install the actual project libraries through pip rather than conda.
+  # Reason: anthropic/streamlit/plotly move quickly and their newest releases
+  # land on PyPI first. Keeping them in requirements.txt gives us one place to
+  # manage versions and makes the project reproducible for non-conda users too.
+  - pip:
+      - -r requirements.txt
