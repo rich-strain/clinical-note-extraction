@@ -36,7 +36,7 @@ CHIEF_COMPLAINTS = [
     ("chest pain", ["chest pain", "c/o chest pain", "CP"]),
     ("shortness of breath", ["shortness of breath", "SOB", "difficulty breathing"]),
     ("abdominal pain", ["abdominal pain", "abd pain", "c/o abd pain"]),
-    ("headache", ["headache", "HA", "c/o headache"]),
+    ("headache", ["headache", "HA", "c/o headache", "migraine"]),
     ("dizziness", ["dizziness", "lightheadedness", "c/o feeling dizzy"]),
     ("back pain", ["back pain", "lower back pain", "c/o back pain"]),
 ]
