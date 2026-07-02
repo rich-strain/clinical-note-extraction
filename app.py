@@ -15,6 +15,7 @@ that tell you whether to trust them.
 
 import hashlib
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -75,6 +76,8 @@ def run_pipeline(n_notes: int, seed: int, force_refresh: bool) -> dict:
         "summary": summary,
         "total_input_tokens": total_input_tokens,
         "total_output_tokens": total_output_tokens,
+        "seed": seed,
+        "n_notes": n_notes,
     }
 
 
@@ -166,6 +169,30 @@ def render_before_after(run: dict) -> None:
                 st.dataframe(rows, hide_index=True, use_container_width=True)
 
 
+def build_export_dataframe(run: dict) -> pd.DataFrame:
+    """
+    One row per note, with every field's extracted vs. ground-truth value
+    plus an "incorrect_fields" summary column — a comma-separated list of
+    which fields were wrong for that note (empty if all correct). Sorting
+    or filtering on that one column is enough to spot which notes/fields
+    are dragging down accuracy for a given seed, without cross-referencing
+    the per-field breakdown chart against individual notes by hand.
+    """
+    records = []
+    for note, normalized, correctness in zip(
+        run["notes"], run["normalized_predictions"], run["per_note_correctness"]
+    ):
+        incorrect_fields = [field for field in FIELD_NAMES if not correctness[field]]
+        record = {"note_text": note["text"]}
+        for field in FIELD_NAMES:
+            record[f"{field}_extracted"] = normalized[field]
+            record[f"{field}_ground_truth"] = note["ground_truth"][field]
+        record["incorrect_fields"] = ", ".join(incorrect_fields)
+        record["num_incorrect"] = len(incorrect_fields)
+        records.append(record)
+    return pd.DataFrame(records)
+
+
 def check_password() -> bool:
     """
     Gate the app behind a single shared password.
@@ -240,6 +267,18 @@ def main() -> None:
 
     render_metrics(run)
     render_accuracy_chart(run["summary"])
+
+    export_df = build_export_dataframe(run)
+    st.download_button(
+        "Download results as CSV",
+        data=export_df.to_csv(index=False),
+        file_name=f"extraction_results_seed{run['seed']}_n{run['n_notes']}.csv",
+        mime="text/csv",
+        help="One row per note: every field's extracted vs. ground-truth "
+        "value, plus an incorrect_fields column summarizing what went "
+        "wrong for that note.",
+    )
+
     render_before_after(run)
 
 
