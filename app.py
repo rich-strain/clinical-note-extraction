@@ -13,6 +13,8 @@ messy input and clean output shown side by side, and the accuracy numbers
 that tell you whether to trust them.
 """
 
+import hashlib
+
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -164,8 +166,47 @@ def render_before_after(run: dict) -> None:
                 st.dataframe(rows, hide_index=True, use_container_width=True)
 
 
+def check_password() -> bool:
+    """
+    Gate the app behind a single shared password.
+
+    This is not real multi-user auth — one password for everyone, no
+    usernames, no per-user anything. It exists to stop a public deployment
+    from letting anyone trigger paid Anthropic API calls, not to protect
+    sensitive data (the notes are synthetic). The password itself is never
+    stored anywhere; only its SHA-256 hash lives in Streamlit Secrets, so a
+    leaked secrets file still doesn't reveal the plaintext password.
+    """
+    if st.session_state.get("authenticated"):
+        return True
+
+    stored_hash = st.secrets.get("APP_PASSWORD_HASH")
+    if not stored_hash:
+        st.error(
+            "No APP_PASSWORD_HASH configured in Streamlit Secrets — the app "
+            "can't verify a password. See README for setup."
+        )
+        return False
+
+    password = st.text_input("Password", type="password")
+    if not password:
+        return False
+
+    entered_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+    if entered_hash == stored_hash:
+        st.session_state["authenticated"] = True
+        return True
+
+    st.error("Incorrect password.")
+    return False
+
+
 def main() -> None:
     st.set_page_config(page_title="Clinical Note Extraction", layout="wide")
+
+    if not check_password():
+        st.stop()
+
     st.title("Clinical Note Extraction Pipeline")
     st.markdown(
         "Messy, unstructured clinical text in; clean, structured data out — "
