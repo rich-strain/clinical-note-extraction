@@ -221,7 +221,7 @@ def main() -> None:
         n_notes = st.slider("Number of notes", min_value=5, max_value=50, value=15)
         seed = st.number_input("Random seed", value=42, step=1)
         force_refresh = st.checkbox(
-            "Force refresh (ignore cache)",
+            "Bypass cache (calls API, incurs cost)",
             value=False,
             help="Bypass the cache and call the API for every note, even if "
             "a cached result already exists. Use this to demo the "
