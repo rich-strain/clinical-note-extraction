@@ -20,6 +20,16 @@ field that was actually present.
 
 from collections import Counter
 
+# The only place scikit-learn enters this pipeline: chief_complaint and
+# medical_history are the two fields mapped onto a closed vocabulary (see
+# extractor.py's CHIEF_COMPLAINT_TERMS / MEDICAL_HISTORY_TERMS), which makes
+# them genuinely classification-shaped — the other 4 fields are open-ended
+# extraction and don't have a fixed label set to build a confusion matrix
+# from.
+from sklearn.metrics import confusion_matrix
+
+from extractor import CHIEF_COMPLAINT_TERMS, MEDICAL_HISTORY_TERMS
+
 FIELD_NAMES = [
     "chief_complaint",
     "duration",
@@ -96,6 +106,84 @@ def evaluate_batch(pairs: list[tuple[dict, dict]]) -> dict:
     }
 
 
+def _bucket_label(value: str | None, canonical_terms: list[str]) -> str:
+    """Map a value onto the closed-vocabulary axis for a confusion matrix.
+
+    A value outside the canonical terms (missing, or something the
+    extractor invented that isn't in the vocabulary) still needs a bucket —
+    silently excluding it from the matrix would hide exactly the kind of
+    failure a confusion matrix is meant to surface.
+    """
+    if value is None:
+        return "(missing)"
+    if value not in canonical_terms:
+        return "(other)"
+    return value
+
+
+def confusion_matrix_for_field(
+    pairs: list[tuple[dict, dict]], field: str, canonical_terms: list[str]
+) -> tuple[list[list[int]], list[str]]:
+    """
+    Build a confusion matrix for one closed-vocabulary field across a batch.
+
+    Rows = ground truth, columns = predicted (normalized extraction) —
+    sklearn's confusion_matrix convention. Labels are the field's canonical
+    terms plus two catch-all buckets, "(other)" (an extracted value outside
+    the vocabulary) and "(missing)" (None), so every note is accounted for
+    rather than silently dropped from the matrix.
+
+    Returns (matrix, labels) — the ordered label list is required to read
+    the matrix's rows/columns correctly.
+    """
+    labels = list(canonical_terms) + ["(other)", "(missing)"]
+    y_true = [_bucket_label(gt.get(field), canonical_terms) for gt, _ in pairs]
+    y_pred = [_bucket_label(pred.get(field), canonical_terms) for _, pred in pairs]
+    matrix = confusion_matrix(y_true, y_pred, labels=labels)
+    return matrix.tolist(), labels
+
+
+def chief_complaint_confusion_matrix(
+    pairs: list[tuple[dict, dict]],
+) -> tuple[list[list[int]], list[str]]:
+    """Confusion matrix for chief_complaint against its closed vocabulary."""
+    return confusion_matrix_for_field(pairs, "chief_complaint", CHIEF_COMPLAINT_TERMS)
+
+
+def medical_history_confusion_matrix(
+    pairs: list[tuple[dict, dict]],
+) -> tuple[list[list[int]], list[str]]:
+    """Confusion matrix for medical_history against its closed vocabulary."""
+    return confusion_matrix_for_field(pairs, "medical_history", MEDICAL_HISTORY_TERMS)
+
+
+def print_confusion_matrix(matrix: list[list[int]], labels: list[str], title: str) -> None:
+    """Pretty-print a confusion matrix as a labeled grid (rows = ground
+    truth, columns = predicted), with a legend for any truncated column
+    headers — readable in a terminal, not a raw array dump."""
+    row_label_width = max(len(label) for label in labels) + 2
+    col_width = 10
+
+    def short(label: str) -> str:
+        return label if len(label) <= col_width - 1 else label[: col_width - 2] + "…"
+
+    print(title)
+    print("(rows = ground truth, columns = predicted)")
+    header = " " * row_label_width + "".join(f"{short(l):>{col_width}}" for l in labels)
+    print(header)
+    for i, row_label in enumerate(labels):
+        row_str = row_label.ljust(row_label_width) + "".join(
+            f"{matrix[i][j]:>{col_width}}" for j in range(len(labels))
+        )
+        print(row_str)
+
+    truncated = [l for l in labels if short(l) != l]
+    if truncated:
+        print("Legend (truncated column headers):")
+        for l in truncated:
+            print(f"  {short(l)} = {l}")
+
+
 def print_summary(summary: dict) -> None:
     """Pretty-print an evaluate_batch() summary to the console."""
     print(f"Notes evaluated: {summary['n_notes']}")
@@ -124,3 +212,7 @@ if __name__ == "__main__":
 
     summary = evaluate_batch(pairs)
     print_summary(summary)
+    print()
+
+    matrix, labels = chief_complaint_confusion_matrix(pairs)
+    print_confusion_matrix(matrix, labels, title="chief_complaint confusion matrix")

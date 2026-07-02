@@ -19,7 +19,12 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from evaluator import FIELD_NAMES, evaluate_batch, evaluate_note
+from evaluator import (
+    FIELD_NAMES,
+    chief_complaint_confusion_matrix,
+    evaluate_batch,
+    evaluate_note,
+)
 from extractor import MODEL, extract_fields
 from normalizer import normalize_fields
 from note_generator import generate_notes
@@ -68,6 +73,7 @@ def run_pipeline(n_notes: int, seed: int, force_refresh: bool) -> dict:
         for note, normalized in zip(notes, normalized_predictions)
     ]
     summary = evaluate_batch(pairs)
+    cc_matrix, cc_labels = chief_complaint_confusion_matrix(pairs)
 
     return {
         "notes": notes,
@@ -78,6 +84,8 @@ def run_pipeline(n_notes: int, seed: int, force_refresh: bool) -> dict:
         "total_output_tokens": total_output_tokens,
         "seed": seed,
         "n_notes": n_notes,
+        "chief_complaint_matrix": cc_matrix,
+        "chief_complaint_labels": cc_labels,
     }
 
 
@@ -138,6 +146,35 @@ def render_accuracy_chart(summary: dict) -> None:
         "Blue = normal, amber = weakest field(s) (also labeled directly on the "
         "x-axis, not color alone)."
     )
+
+
+def render_confusion_matrix(matrix: list[list[int]], labels: list[str]) -> None:
+    st.subheader("chief_complaint confusion matrix")
+    st.caption("Rows = ground truth, columns = predicted.")
+
+    # This cell is a MAGNITUDE (a count), not a two-way comparison, so it
+    # gets a sequential single-hue ramp (light -> the same blue used
+    # elsewhere) rather than the blue/amber pair — a diverging pair implies
+    # two opposed categories, which doesn't apply to a plain count. Every
+    # cell is also annotated with its number directly, so meaning is never
+    # carried by color alone.
+    fig = go.Figure(
+        go.Heatmap(
+            z=matrix,
+            x=labels,
+            y=labels,
+            colorscale=[[0, "#EFF6FF"], [1, COLOR_NORMAL]],
+            text=matrix,
+            texttemplate="%{text}",
+            showscale=False,
+        )
+    )
+    fig.update_layout(
+        xaxis=dict(title="Predicted", side="bottom"),
+        yaxis=dict(title="Ground truth", autorange="reversed"),
+        margin=dict(t=10, b=10),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def render_before_after(run: dict) -> None:
@@ -267,6 +304,7 @@ def main() -> None:
 
     render_metrics(run)
     render_accuracy_chart(run["summary"])
+    render_confusion_matrix(run["chief_complaint_matrix"], run["chief_complaint_labels"])
 
     export_df = build_export_dataframe(run)
     st.download_button(

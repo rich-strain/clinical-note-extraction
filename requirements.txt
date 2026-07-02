@@ -9,3 +9,4 @@ python-dotenv>=1.0       # Loads the API key from a local .env file into os.envi
 streamlit>=1.40          # Dashboard UI (Step 6)
 plotly>=5.24             # Colorblind-safe charts in the dashboard (Step 6)
 pandas>=2.2              # Tabular handling for evaluation/normalization convenience
+scikit-learn>=1.5        # confusion_matrix for the closed-vocabulary fields (Step 5)
