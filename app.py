@@ -177,33 +177,52 @@ def render_confusion_matrix(matrix: list[list[int]], labels: list[str]) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def render_before_after(run: dict) -> None:
-    st.subheader("Before / after")
+# Light amber tint used as a SECONDARY cue on mismatched cells in the
+# cleaned table. Never the only cue — the ⚠ text prefix carries the actual
+# meaning and is readable even with color stripped out entirely.
+COLOR_MISMATCH_TINT = "#FEF3E2"
 
-    for note, normalized, correctness in zip(
-        run["notes"], run["normalized_predictions"], run["per_note_correctness"]
+
+def render_raw_table(run: dict) -> None:
+    st.subheader("Raw (Messy) Patient Record")
+    df = pd.DataFrame({"note_text": [note["text"] for note in run["notes"]]})
+    df.index = range(1, len(df) + 1)
+    df.index.name = "note"
+    st.dataframe(df, use_container_width=True)
+
+
+def render_cleaned_table(run: dict) -> None:
+    st.subheader("After Cleaning & Normalization")
+    st.caption(
+        "⚠ marks a field that doesn't match ground truth (the light amber "
+        "tint is a secondary cue only — the ⚠ symbol is what carries the "
+        "meaning). Row numbers align with the raw table above."
+    )
+
+    records = []
+    for normalized, correctness in zip(
+        run["normalized_predictions"], run["per_note_correctness"]
     ):
-        with st.expander(note["text"][:80] + ("..." if len(note["text"]) > 80 else "")):
-            col_before, col_after = st.columns(2)
-            with col_before:
-                st.markdown("**Messy note text**")
-                st.text(note["text"])
-            with col_after:
-                st.markdown("**Extracted (normalized)**")
-                rows = []
-                for field in FIELD_NAMES:
-                    is_match = correctness[field]
-                    rows.append(
-                        {
-                            "field": field,
-                            "extracted": normalized[field] or "—",
-                            "ground truth": note["ground_truth"][field] or "—",
-                            # Symbol carries meaning, not color — readable
-                            # even with color stripped out entirely.
-                            "match": "correct" if is_match else "wrong",
-                        }
-                    )
-                st.dataframe(rows, hide_index=True, use_container_width=True)
+        incorrect_fields = [field for field in FIELD_NAMES if not correctness[field]]
+        record = {}
+        for field in FIELD_NAMES:
+            value = normalized[field] if normalized[field] is not None else "—"
+            record[field] = f"⚠ {value}" if not correctness[field] else value
+        record["issues"] = ", ".join(incorrect_fields) if incorrect_fields else "—"
+        records.append(record)
+
+    df = pd.DataFrame(records)
+    df.index = range(1, len(df) + 1)
+    df.index.name = "note"
+
+    def tint_mismatch(value: str) -> str:
+        return f"background-color: {COLOR_MISMATCH_TINT}" if value.startswith("⚠") else ""
+
+    styled = df.style.map(tint_mismatch, subset=FIELD_NAMES)
+    st.dataframe(styled, use_container_width=True)
+
+    with st.expander("Field-level detail (extracted vs. ground truth)"):
+        st.dataframe(build_export_dataframe(run), hide_index=True, use_container_width=True)
 
 
 def build_export_dataframe(run: dict) -> pd.DataFrame:
@@ -317,7 +336,8 @@ def main() -> None:
         "wrong for that note.",
     )
 
-    render_before_after(run)
+    render_raw_table(run)
+    render_cleaned_table(run)
 
 
 if __name__ == "__main__":

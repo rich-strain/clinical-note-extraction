@@ -110,6 +110,44 @@ def normalize_text_field(value: str | None) -> str | None:
     return cleaned if cleaned else None
 
 
+# --- Medications ------------------------------------------------------------
+
+# The extraction prompt already asks the model to return the bare drug name
+# only (see extractor.py's medications normalization instruction), but it
+# doesn't always comply — e.g. "uses albuterol inhaler prn" can come back as
+# "albuterol inhaler" instead of "albuterol", or the model can echo the note's
+# leading verb too ("uses albuterol", "takes atorvastatin", "on metformin").
+# This is the safety net: strip both leading verb/preposition words and
+# trailing delivery-method/dosing words the model left in.
+_MEDICATION_LEADING_STOPWORDS = {
+    "takes", "taking", "uses", "using", "on",
+}
+_MEDICATION_TRAILING_STOPWORDS = {
+    "inhaler", "tablet", "tablets", "capsule", "capsules", "injection",
+    "pill", "pills", "patch", "drops", "cream", "spray",
+    "prn", "daily", "bid", "tid", "qid", "as", "needed",
+}
+
+
+def normalize_medication(value: str | None) -> str | None:
+    """Strip whitespace/casing (via normalize_text_field), then repeatedly
+    drop leading verb/preposition words and trailing delivery-method/dosing
+    words until only the drug name is left. Never returns an empty string —
+    if stripping would remove every word, the stripped-but-uncut value is
+    kept instead, since an unstripped medication name is more useful than a
+    blank field."""
+    cleaned = normalize_text_field(value)
+    if cleaned is None:
+        return None
+    trimmed = cleaned.split()
+    while trimmed and trimmed[0] in _MEDICATION_LEADING_STOPWORDS:
+        trimmed.pop(0)
+    while trimmed and trimmed[-1] in _MEDICATION_TRAILING_STOPWORDS:
+        trimmed.pop()
+    result = " ".join(trimmed)
+    return result if result else cleaned
+
+
 # --- Top-level entry point --------------------------------------------------
 
 _FIELD_NORMALIZERS = {
@@ -118,7 +156,7 @@ _FIELD_NORMALIZERS = {
     "medical_history": normalize_text_field,
     "blood_pressure": normalize_blood_pressure,
     "heart_rate": normalize_heart_rate,
-    "medications": normalize_text_field,
+    "medications": normalize_medication,
 }
 
 

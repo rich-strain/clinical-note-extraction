@@ -34,7 +34,7 @@ MODEL = "claude-haiku-4-5"
 # the cache key, so an old cached result (produced by the old prompt) won't
 # be mistaken for a result from the new prompt — the cache miss forces a
 # fresh API call instead of silently serving stale data.
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v5"
 
 CACHE_DIR = Path(__file__).parent / "cache"
 
@@ -78,7 +78,7 @@ even for numeric fields like heart_rate (write "105", not 105). If the
 note mentions more than one item for a field, pick the single most
 clinically significant one.
 - chief_complaint: the main reason for the visit
-- duration: how long the symptom has been present
+- duration: how long the symptom has been present (results should be in the form of a single string, e.g. "3 days", "2 weeks", "1 month", "6 months", "1 year", etc.)
 - medical_history: relevant prior conditions
 - blood_pressure: systolic/diastolic reading
 - heart_rate: beats per minute
@@ -88,6 +88,7 @@ Normalization:
 - For chief_complaint, map the note's wording to the closest matching standard term from this list: {chief_complaint_terms}. For example, "difficulty breathing" or "SOB" should be normalized to "shortness of breath".
 - For medical_history, map the note's wording to the closest matching standard term from this list: {medical_history_terms}. For example, "HTN" should be normalized to "hypertension".
 - If the note's wording doesn't clearly match any term in the list, use your best standard clinical terminology instead of the literal phrase.
+- For medications, extract only the drug name itself. Omit delivery method (e.g. "inhaler", "tablet", "injection") and dosing/frequency instructions (e.g. "prn", "daily", "as needed"). For example, "uses albuterol inhaler prn" should be normalized to "albuterol", not "albuterol inhaler" or "albuterol inhaler prn".
 
 Rules:
 - If a field is not mentioned in the note, use null for that field. Do NOT guess or invent a value.

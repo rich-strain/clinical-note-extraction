@@ -54,13 +54,31 @@ MEDICAL_HISTORY = [
     ("type 2 diabetes", ["type 2 diabetes", "T2DM", "hx of diabetes"]),
     ("asthma", ["asthma", "hx of asthma"]),
     ("hyperlipidemia", ["hyperlipidemia", "high cholesterol", "hx of high cholesterol"]),
+    ("coronary artery disease", ["coronary artery disease", "CAD", "hx of CAD"]),
+    ("chronic kidney disease", ["chronic kidney disease", "CKD", "hx of CKD"]),
+    ("depression", ["depression", "hx of depression"]),
+    ("anxiety", ["anxiety", "hx of anxiety"]),
+    ("osteoarthritis", ["osteoarthritis", "OA", "hx of OA"]),
+    ("systemic sclerosis", ["systemic sclerosis", "SSc", "hx of SSc"]),
 ]
 
 MEDICATIONS = [
     ("lisinopril", ["lisinopril", "takes lisinopril daily"]),
     ("metformin", ["metformin", "on metformin"]),
-    ("albuterol", ["albuterol", "uses albuterol inhaler prn"]),
-    ("atorvastatin", ["atorvastatin", "takes atorvastatin"]),
+    ("albuterol", ["albuterol", "uses albuterol inhaler prn", "albuterol inhaler", "albuterol inhaler prn sob"]),
+    ("atorvastatin", ["atorvastatin", "takes atorvastatin daily"]),
+    ("levothyroxine", ["levothyroxine", "on levothyroxine"]),
+    ("aspirin", ["aspirin q34", "takes aspirin daily"]),
+    ("omeprazole", ["omeprazole", "takes omeprazole"]),
+    ("hydrochlorothiazide", ["hydrochlorothiazide", "on hydrochlorothiazide"]),
+    ("simvastatin", ["simvastatin", "takes simvastatin"]),
+    ("hydralazine", ["hydralazine", "on hydralazine"]),
+    ("warfarin", ["warfarin", "takes warfarin"]),
+    ("furosemide", ["furosemide q25", "on furosemide"]),
+    ("amlodipine", ["amlodipine", "on amlodipine"]),
+    ("gabapentin", ["gabapentin", "takes gabapentin"]),
+    ("sildenafil", ["sildenafil", "on sildenafil prn", "sildenafil as needed"]),
+    ("nitroglycerin", ["nitroglycerin sl prn", "takes nitroglycerin prn for chest pain", "nitroglycerin PRN", "nitroglycerin for chest pain"]),
 ]
 
 # Blood pressure and heart rate are generated as numbers rather than picked
@@ -114,6 +132,17 @@ HR_BARE_FORMATS = [
     "{hr}",
 ]
 
+# Opening sentence templates for the chief complaint. Templates own the full
+# sentence structure (not just a prefix) so a "c/o"-style opener can be
+# excluded when cc_phrase already starts with "c/o" — otherwise pairing them
+# produces a visible duplication bug like "Pt c/o c/o chest pain."
+NOTE_OPENERS = [
+    "Pt presents with {phrase}.",
+    "Patient presents w/ {phrase}.",
+    "Patient presents with {phrase}.",
+    "Pt c/o {phrase}.",
+]
+
 # Probability that each OPTIONAL field is actually mentioned in the note.
 # chief_complaint is not in here — it's always present, since a visit
 # without any stated reason isn't a realistic note.
@@ -161,7 +190,13 @@ def generate_note(rng: random.Random | None = None) -> dict:
     # for the visit.
     cc_canonical, cc_phrase = _pick(CHIEF_COMPLAINTS, rng)
     ground_truth["chief_complaint"] = cc_canonical
-    parts = [f"Pt presents with {cc_phrase}."]
+
+    eligible_openers = [
+        o for o in NOTE_OPENERS
+        if not (cc_phrase.startswith("c/o") and "c/o" in o)
+    ]
+    opener_template = rng.choice(eligible_openers)
+    parts = [opener_template.format(phrase=cc_phrase)]
 
     if rng.random() < FIELD_INCLUSION_PROBABILITY["duration"]:
         dur_canonical, dur_phrase = _pick(DURATIONS, rng)
