@@ -34,7 +34,7 @@ MODEL = "claude-haiku-4-5"
 # the cache key, so an old cached result (produced by the old prompt) won't
 # be mistaken for a result from the new prompt — the cache miss forces a
 # fresh API call instead of silently serving stale data.
-PROMPT_VERSION = "v5"
+PROMPT_VERSION = "v7"
 
 CACHE_DIR = Path(__file__).parent / "cache"
 
@@ -68,6 +68,12 @@ MEDICAL_HISTORY_TERMS = [
     "type 2 diabetes",
     "asthma",
     "hyperlipidemia",
+    "coronary artery disease",
+    "chronic kidney disease",
+    "depression",
+    "anxiety",
+    "osteoarthritis",
+    "systemic sclerosis",
 ]
 
 EXTRACTION_PROMPT_TEMPLATE = """You are extracting structured data from a clinical note for a data curation pipeline.
@@ -92,6 +98,7 @@ Normalization:
 
 Rules:
 - If a field is not mentioned in the note, use null for that field. Do NOT guess or invent a value.
+- Only extract a value if it is explicitly stated in the note's text. Do NOT infer, diagnose, or clinically deduce a value from other fields — for example, do not infer medical_history: hypertension just because a blood pressure reading is elevated or a medication like lisinopril is listed. Medications and vitals are evidence a clinician might use to reach a diagnosis, but this task is extraction, not diagnosis.
 - Return ONLY a JSON object with exactly these 6 keys: chief_complaint, duration, medical_history, blood_pressure, heart_rate, medications.
 - Do not include any text before or after the JSON object.
 

@@ -14,6 +14,7 @@ that tell you whether to trust them.
 """
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -43,6 +44,11 @@ COLOR_NEUTRAL = "#9CA3AF"  # gray — neutral UI chrome (not used for meaning)
 INPUT_RATE_PER_MILLION = 1.00
 OUTPUT_RATE_PER_MILLION = 5.00
 
+# Extraction calls are I/O-bound (waiting on the network/API), so running
+# several concurrently overlaps their wait time instead of paying for it
+# serially — this doesn't change token usage or cost, only wall-clock time.
+EXTRACTION_WORKERS = 10
+
 
 def run_pipeline(n_notes: int, seed: int, force_refresh: bool) -> dict:
     """
@@ -54,13 +60,20 @@ def run_pipeline(n_notes: int, seed: int, force_refresh: bool) -> dict:
     """
     notes = generate_notes(n_notes, seed=seed)
 
-    normalized_predictions = []
-    per_note_correctness = []
     total_input_tokens = 0
     total_output_tokens = 0
 
-    for note in notes:
-        result = extract_fields(note["text"], force_refresh=force_refresh)
+    with ThreadPoolExecutor(max_workers=EXTRACTION_WORKERS) as executor:
+        results = list(
+            executor.map(
+                lambda note: extract_fields(note["text"], force_refresh=force_refresh),
+                notes,
+            )
+        )
+
+    normalized_predictions = []
+    per_note_correctness = []
+    for note, result in zip(notes, results):
         total_input_tokens += result["usage"]["input_tokens"]
         total_output_tokens += result["usage"]["output_tokens"]
 

@@ -61,12 +61,20 @@ _DURATION_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Word-form quantities ("a week", "an hour") never contain a digit, so
+# _DURATION_PATTERN can't catch them — this is the same problem "half an
+# hour" already needed a carve-out for, just generalized to any unit.
+_WORD_QUANTITY_PATTERN = re.compile(
+    r"\ban?\s+(day|week|hour|minute)s?\b", re.IGNORECASE
+)
+
 
 def normalize_duration(value: str | None) -> str | None:
     """
     Standardize duration phrasing to "N unit" (singular for N == 1), e.g.
     "for the past 2 days" -> "2 days", "x30 min" -> "30 minutes",
-    "started 3 hrs ago" -> "3 hours", "started half an hour ago" -> "30 minutes".
+    "started 3 hrs ago" -> "3 hours", "started half an hour ago" -> "30 minutes",
+    "for about a week" -> "1 week".
     """
     if value is None:
         return None
@@ -74,6 +82,10 @@ def normalize_duration(value: str | None) -> str | None:
         return "30 minutes"
     match = _DURATION_PATTERN.search(value)
     if not match:
+        word_match = _WORD_QUANTITY_PATTERN.search(value)
+        if word_match:
+            unit = _DURATION_UNIT_CANONICAL[word_match.group(1).lower()]
+            return f"1 {unit}"
         return value.strip()
     quantity = int(match.group(1))
     unit = _DURATION_UNIT_CANONICAL[match.group(2).lower()]
